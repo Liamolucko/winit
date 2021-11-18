@@ -243,6 +243,18 @@ impl<T> WindowTarget<T> {
                 event: WindowEvent::ThemeChanged(theme),
             });
         });
+
+        let runner = self.runner.clone();
+        let raw = canvas.raw().clone();
+        canvas.on_resize(move |size| {
+            raw.set_width(size.width);
+            raw.set_height(size.height);
+
+            runner.send_event(Event::WindowEvent {
+                window_id: WindowId(id),
+                event: WindowEvent::Resized(size),
+            })
+        });
     }
 
     pub fn available_monitors(&self) -> VecDequeIter<monitor::Handle> {

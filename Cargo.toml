@@ -117,6 +117,11 @@ features = [
     'MouseEvent',
     'Node',
     'PointerEvent',
+    "ResizeObserver",
+    "ResizeObserverBoxOptions",
+    "ResizeObserverEntry",
+    "ResizeObserverOptions",
+    "ResizeObserverSize",
     'Window',
     'WheelEvent'
 ]
@@ -124,5 +129,13 @@ features = [
 [target.'cfg(target_arch = "wasm32")'.dependencies.wasm-bindgen]
 version = "0.2.45"
 
+[target.'cfg(target_arch = "wasm32")'.dependencies.js-sys]
+version = "0.3.22"
+
 [target.'cfg(target_arch = "wasm32")'.dev-dependencies]
 console_log = "0.2"
+
+[patch.crates-io]
+wasm-bindgen = { git = "https://github.com/rustwasm/wasm-bindgen.git" }
+web-sys = { git = "https://github.com/rustwasm/wasm-bindgen.git" }
+js-sys = { git = "https://github.com/rustwasm/wasm-bindgen.git" }

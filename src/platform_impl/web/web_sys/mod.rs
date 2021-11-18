@@ -81,14 +81,13 @@ pub fn scale_factor() -> f64 {
     window.device_pixel_ratio()
 }
 
+/// Set the CSS `width` & `height` properties of the canvas.
+///
+/// This will then trigger the `ResizeObserver` to actually change the canvas size.
 pub fn set_canvas_size(raw: &HtmlCanvasElement, size: Size) {
     let scale_factor = scale_factor();
 
-    let physical_size = size.to_physical::<u32>(scale_factor);
     let logical_size = size.to_logical::<f64>(scale_factor);
-
-    raw.set_width(physical_size.width);
-    raw.set_height(physical_size.height);
 
     set_canvas_style_property(raw, "width", &format!("{}px", logical_size.width));
     set_canvas_style_property(raw, "height", &format!("{}px", logical_size.height));

@@ -1,7 +1,7 @@
 use super::event;
 use super::event_handle::EventListenerHandle;
 use super::media_query_handle::MediaQueryListHandle;
-use crate::dpi::{LogicalPosition, PhysicalPosition, PhysicalSize};
+use crate::dpi::{LogicalPosition, LogicalSize, PhysicalPosition, PhysicalSize};
 use crate::error::OsError as RootOE;
 use crate::event::{ModifiersState, MouseButton, MouseScrollDelta, ScanCode, VirtualKeyCode};
 use crate::platform_impl::{OsError, PlatformSpecificWindowBuilderAttributes};
@@ -9,10 +9,12 @@ use crate::platform_impl::{OsError, PlatformSpecificWindowBuilderAttributes};
 use std::cell::RefCell;
 use std::rc::Rc;
 
+use js_sys::Array;
 use wasm_bindgen::{closure::Closure, JsCast};
 use web_sys::{
     AddEventListenerOptions, Event, FocusEvent, HtmlCanvasElement, KeyboardEvent,
-    MediaQueryListEvent, MouseEvent, WheelEvent,
+    MediaQueryListEvent, MouseEvent, ResizeObserver, ResizeObserverBoxOptions, ResizeObserverEntry,
+    ResizeObserverOptions, ResizeObserverSize, WheelEvent,
 };
 
 mod mouse_handler;
@@ -29,6 +31,8 @@ pub struct Canvas {
     on_mouse_wheel: Option<EventListenerHandle<dyn FnMut(WheelEvent)>>,
     on_fullscreen_change: Option<EventListenerHandle<dyn FnMut(Event)>>,
     on_dark_mode: Option<MediaQueryListHandle>,
+    on_resize: Option<Closure<dyn FnMut(Array)>>,
+    resize_observer: Option<ResizeObserver>,
     mouse_state: MouseState,
 }
 
@@ -85,6 +89,8 @@ impl Canvas {
             on_mouse_wheel: None,
             on_fullscreen_change: None,
             on_dark_mode: None,
+            on_resize: None,
+            resize_observer: None,
             mouse_state,
         })
     }
@@ -279,6 +285,54 @@ impl Canvas {
                     as Box<dyn FnMut(_)>,
             );
         self.on_dark_mode = MediaQueryListHandle::new("(prefers-color-scheme: dark)", closure);
+    }
+
+    pub fn on_resize<F>(&mut self, mut handler: F)
+    where
+        F: 'static + FnMut(PhysicalSize<u32>), // TODO: will this necessarily fit in a u32? The spec just says it's an integer.
+    {
+        let closure = Closure::wrap(Box::new(move |entries: Array| {
+            for entry in entries.iter() {
+                let entry: ResizeObserverEntry = entry
+                    .dyn_into()
+                    .expect("Resize observer callback not called with `ResizeObserverEntry` array");
+
+                let size = if entry.device_pixel_content_box_size().is_undefined() {
+                    // Safari doesn't support `devicePixelContentBoxSize` yet (nor `contentBoxSize`), so fall back to `contentRect` and use the scale factor to convert.
+                    let rect = entry.content_rect();
+
+                    LogicalSize::new(rect.width(), rect.height()).to_physical(super::scale_factor())
+                } else {
+                    // TODO: what exactly would cause there to be multiple of these?
+                    let size: ResizeObserverSize = entry.device_pixel_content_box_size().get(0).dyn_into().expect("`ResizeObserverEntry.devicePixelContentBoxSize` was not a `ResizeObserverSize`");
+
+                    // TODO: width & height are the other way round on vertical writing modes.
+                    PhysicalSize::new(size.inline_size() as u32, size.block_size() as u32)
+                };
+
+                handler(size);
+            }
+        }) as Box<dyn FnMut(_)>);
+
+        let resize_observer = ResizeObserver::new(
+            closure
+                .as_ref()
+                .dyn_ref()
+                .expect("`Closure` wasn't a `Function`, somehow."),
+        )
+        .expect("Failed to create `ResizeObserver`");
+
+        resize_observer.observe_with_options(
+            &self.common.raw,
+            &ResizeObserverOptions::new().box_(ResizeObserverBoxOptions::DevicePixelContentBox),
+        );
+
+        self.on_resize = Some(closure);
+
+        if let Some(resize_observer) = self.resize_observer.replace(resize_observer) {
+            // Disconnect the old `ResizeObserver`, otherwise it won't get GC'd.
+            resize_observer.disconnect();
+        }
     }
 
     pub fn request_fullscreen(&self) {

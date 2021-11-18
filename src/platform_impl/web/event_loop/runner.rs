@@ -289,7 +289,7 @@ impl<T: 'static> Shared<T> {
         }
     }
 
-    pub fn handle_scale_changed(&self, old_scale: f64, new_scale: f64) {
+    pub fn handle_scale_changed(&self, _old_scale: f64, new_scale: f64) {
         // If there aren't any windows, then there is nothing to do here.
         if self.0.all_canvases.borrow().is_empty() {
             return;
@@ -320,13 +320,14 @@ impl<T: 'static> Shared<T> {
                 // This shouldn't happen, but just in case...
                 None => continue,
             };
+            // TODO: make sure that `ResizeObserver` always fires before `ScaleFactorChanged`, otherwise this size might not have been updated yet.
+            // It seems to, but it'd be better to actually check the spec.
             // First, we send the `ScaleFactorChanged` event:
-            let current_size = crate::dpi::PhysicalSize {
-                width: canvas.width() as u32,
-                height: canvas.height() as u32,
+            let size = crate::dpi::PhysicalSize {
+                width: canvas.width(),
+                height: canvas.height(),
             };
-            let logical_size = current_size.to_logical::<f64>(old_scale);
-            let mut new_size = logical_size.to_physical(new_scale);
+            let mut new_size = size;
             self.handle_single_event_sync(
                 Event::WindowEvent {
                     window_id: id,
@@ -338,15 +339,18 @@ impl<T: 'static> Shared<T> {
                 &mut control,
             );
 
-            // Then we resize the canvas to the new size and send a `Resized` event:
-            backend::set_canvas_size(&canvas, crate::dpi::Size::Physical(new_size));
-            self.handle_single_event_sync(
-                Event::WindowEvent {
-                    window_id: id,
-                    event: crate::event::WindowEvent::Resized(new_size),
-                },
-                &mut control,
-            );
+            if new_size != size {
+                backend::set_canvas_size(&canvas, new_size.into());
+            } else {
+                // Then we send a `Resized` event:
+                self.handle_single_event_sync(
+                    Event::WindowEvent {
+                        window_id: id,
+                        event: crate::event::WindowEvent::Resized(new_size),
+                    },
+                    &mut control,
+                );
+            }
         }
 
         // Process the destroy-pending windows again.
