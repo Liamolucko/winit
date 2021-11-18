@@ -1,5 +1,4 @@
 use super::{super::monitor, backend, device, proxy::Proxy, runner, window};
-use crate::dpi::{PhysicalSize, Size};
 use crate::event::{
     DeviceEvent, DeviceId, ElementState, Event, KeyboardInput, TouchPhase, WindowEvent,
 };
@@ -202,32 +201,8 @@ impl<T> WindowTarget<T> {
         });
 
         let runner = self.runner.clone();
-        let raw = canvas.raw().clone();
 
-        // The size to restore to after exiting fullscreen.
-        let mut intended_size = PhysicalSize {
-            width: raw.width() as u32,
-            height: raw.height() as u32,
-        };
         canvas.on_fullscreen_change(move || {
-            // If the canvas is marked as fullscreen, it is moving *into* fullscreen
-            // If it is not, it is moving *out of* fullscreen
-            let new_size = if backend::is_fullscreen(&raw) {
-                intended_size = PhysicalSize {
-                    width: raw.width() as u32,
-                    height: raw.height() as u32,
-                };
-
-                backend::window_size().to_physical(backend::scale_factor())
-            } else {
-                intended_size
-            };
-
-            backend::set_canvas_size(&raw, Size::Physical(new_size));
-            runner.send_event(Event::WindowEvent {
-                window_id: WindowId(id),
-                event: WindowEvent::Resized(new_size),
-            });
             runner.request_redraw(WindowId(id));
         });
 
