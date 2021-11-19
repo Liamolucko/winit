@@ -228,7 +228,9 @@ impl<T> WindowTarget<T> {
             runner.send_event(Event::WindowEvent {
                 window_id: WindowId(id),
                 event: WindowEvent::Resized(size),
-            })
+            });
+
+            runner.request_redraw(WindowId(id));
         });
     }
 
