@@ -9,7 +9,7 @@ pub use self::canvas::Canvas;
 pub use self::scaling::ScaleChangeDetector;
 pub use self::timeout::{AnimationFrameRequest, Timeout};
 
-use crate::dpi::{LogicalSize, Size};
+use crate::dpi::Size;
 use crate::platform::web::WindowExtWebSys;
 use crate::window::Window;
 use wasm_bindgen::closure::Closure;
@@ -58,22 +58,6 @@ impl WindowExtWebSys for Window {
             .map(|media| media.matches())
             .unwrap_or(false)
     }
-}
-
-pub fn window_size() -> LogicalSize<f64> {
-    let window = web_sys::window().expect("Failed to obtain window");
-    let width = window
-        .inner_width()
-        .expect("Failed to get width")
-        .as_f64()
-        .expect("Failed to get width as f64");
-    let height = window
-        .inner_height()
-        .expect("Failed to get height")
-        .as_f64()
-        .expect("Failed to get height as f64");
-
-    LogicalSize { width, height }
 }
 
 pub fn scale_factor() -> f64 {

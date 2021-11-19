@@ -292,7 +292,10 @@ impl Canvas {
         F: 'static + FnMut(PhysicalSize<u32>), // TODO: will this necessarily fit in a u32? The spec just says it's an integer.
     {
         let window = web_sys::window().unwrap();
-        let style = window.get_computed_style(&raw).unwrap().expect("`getComputedStyle` returned `None`");
+        let style = window
+            .get_computed_style(&self.common.raw)
+            .unwrap()
+            .expect("`getComputedStyle` returned `None`");
 
         let closure = Closure::wrap(Box::new(move |entries: Array| {
             for entry in entries.iter() {
@@ -309,8 +312,9 @@ impl Canvas {
                     // TODO: what exactly would cause there to be multiple of these?
                     let size: ResizeObserverSize = entry.device_pixel_content_box_size().get(0).dyn_into().expect("`ResizeObserverEntry.devicePixelContentBoxSize` was not a `ResizeObserverSize`");
 
-                    match &style.get_property_value("writing-mode").unwrap() {
-                        "vertical-lr" | "vertical-rl" | "sideways-lr" | "sideways-rl" | "tb" | "tb-lr" | "tb-rl" => {
+                    match style.get_property_value("writing-mode").unwrap().as_str() {
+                        "vertical-lr" | "vertical-rl" | "sideways-lr" | "sideways-rl" | "tb"
+                        | "tb-lr" | "tb-rl" => {
                             // The text is flowing vertically, so `inline_size` is height and `block_size` is width.
                             PhysicalSize {
                                 width: size.block_size() as u32,
@@ -319,12 +323,10 @@ impl Canvas {
                         }
                         // If it isn't a known value, default to horizontal,
                         // since it's probably a browser which doesn't support this or something.
-                        _ => {
-                            PhysicalSize {
-                                width: size.inline_size() as u32,
-                                height: size.block_size() as u32,
-                            }
-                        }
+                        _ => PhysicalSize {
+                            width: size.inline_size() as u32,
+                            height: size.block_size() as u32,
+                        },
                     }
                 };
 
@@ -342,7 +344,7 @@ impl Canvas {
 
         resize_observer.observe_with_options(
             &self.common.raw,
-            &ResizeObserverOptions::new().box_(ResizeObserverBoxOptions::DevicePixelContentBox),
+            ResizeObserverOptions::new().box_(ResizeObserverBoxOptions::DevicePixelContentBox),
         );
 
         self.on_resize = Some(closure);
