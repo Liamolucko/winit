@@ -8,6 +8,8 @@ And please only add new entries to the top of this list, right below the `# Unre
 
 # Unreleased
 
+- The `EventLoopWindowTarget` passed to the `EventLoop::run` callback now has a lifetime of `'static`.
+- The `EventLoopWindowTarget` passed to the `EventLoop::run_return` callback now lives for as long as the reference to the event loop.
 - `EventLoopProxy` now implements `Sync` as well as `Send`.
 - `EventLoopProxy` now implements `Send` on WebAssembly.
 - Build docs on `docs.rs` for iOS and Android as well.
